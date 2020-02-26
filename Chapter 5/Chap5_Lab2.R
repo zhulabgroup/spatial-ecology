@@ -21,41 +21,41 @@ library("sp")
 library("spacetime")
 library("STRbook")
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------simulate with spatially invariant kernel
 SIM1 <- simIDE(T = 10, nobs = 100, k_spat_invariant = 1)
 
 ## ------------------------------------------------------------------------
 print(SIM1$g_truth)
 print(SIM1$g_obs)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------build IDE model
 IDEmodel <- IDE(f = z ~ s1 + s2,
                 data = SIM1$z_STIDF,
                 dt = as.difftime(1, units = "days"),
                 grid_size = 41)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------fit IDE model
 ## fit_results_sim1 <- fit.IDE(IDEmodel,
 ##                            parallelType = 1)
 
 ## ------------------------------------------------------------------------
 data("IDE_Sim1_results", package = "STRbook")
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------southeasterly transport
 show_kernel(fit_results_sim1$IDEmodel)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------kernel parameters true values c(150, 0.002, -0.1, 0.1)
 fit_results_sim1$IDEmodel$get("k") %>% unlist()
-
-## ------------------------------------------------------------------------
+?simIDE
+## ------------------------------------------------------------------------regression coefficients true values c(0.2, 0.2, 0.2)
 coef(fit_results_sim1$IDEmodel)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------moduli of complex eigenvalues of M, check stability
 abs_ev <- eigen(fit_results_sim1$IDEmodel$get("M"))$values %>%
           abs()
 summary(abs_ev)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------predict over the spatial domain
 ST_grid_df <- predict(fit_results_sim1$IDEmodel)
 
 ## ------------------------------------------------------------------------
@@ -64,15 +64,16 @@ gpred <- ggplot(ST_grid_df) +       # Plot the predictions
   facet_wrap(~t) +
   fill_scale(name = "Ypred", limits = c(-0.1, 1.4)) +
   coord_fixed(xlim=c(0, 1), ylim = c(0, 1))
+gpred
 
 gpredse <- ggplot(ST_grid_df) +     # Plot the prediction s.es
   geom_tile(aes(s1, s2, fill = Ypredse)) +
   facet_wrap(~t) +
   fill_scale(name = "Ypredse") +
   coord_fixed(xlim=c(0, 1), ylim = c(0, 1))
+gpredse
 
-
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------Simulate with spatially varying kernel
 SIM2 <- simIDE(T = 15, nobs = 1000, k_spat_invariant = 0)
 
 ## ----results = 'hide', fig.keep = 'none'---------------------------------
@@ -82,19 +83,19 @@ print(SIM2$g_obs)
 ## ------------------------------------------------------------------------
 show_kernel(SIM2$IDEmodel, scale = 0.2)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------introduce masis functions
 mbasis_1 <- auto_basis(manifold = plane(),   # fns on the plane
                        data = SIM2$z_STIDF,  # data
                        nres = 1,             # 1 resolution
                        type = 'bisquare')    # type of functions
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------third and fourth kernel parameter as sums of basis functions
 kernel_basis <- list(thetam1 = constant_basis(),
                      thetam2 = constant_basis(),
                      thetam3 = mbasis_1,
                      thetam4 = mbasis_1)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------use kernel_basis when building IDE model
 IDEmodel <- IDE(f = z ~ s1 + s2 + 1,
                 data = SIM2$z_STIDF,
                 dt = as.difftime(1, units = "days"),
@@ -112,12 +113,12 @@ data("IDE_Sim2_results", package = "STRbook")
 ## ------------------------------------------------------------------------
 show_kernel(fit_results_sim2$IDEmodel)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------compare fitted vs. true kernels
 K1 <- show_kernel(fit_results_sim2$IDEmodel, scale = 0.2) + ggplot2::coord_fixed()
 K2 <- show_kernel(SIM2$IDEmodel, scale = 0.2) + ggplot2::coord_fixed()
-g <- grid.arrange(K1, K2, ncol = 2)
+g <- gridExtra::grid.arrange(K1, K2, ncol = 2)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------Sydney Radar Data Set
 data("radar_STIDF", package = "STRbook")
 
 ## ------------------------------------------------------------------------
@@ -169,11 +170,11 @@ gobs <- ggplot(radar_df) +
   geom_tile(aes(s1, s2, fill = pmin(pmax(z, -20), 60))) +
   fill_scale(limits = c(-20, 60), name = "Z") +
   facet_wrap(~time) + coord_fixed() + theme_bw()
-
+gobs
 ## Plot of predictions with color scale forced to (-20, 60)
 gpred <- ggplot(ST_grid_df) +
   geom_tile(aes(s1, s2, fill = Ypred)) +
   facet_wrap(~time) + coord_fixed() + theme_bw() +
   fill_scale(limits = c(-20, 60), name = "Ypred")
-
+gpred
 

@@ -26,7 +26,7 @@ SST_Oct97 <- SSTdata[-delete_rows, 334]  # save Oct 1997 SSTs
 SSTdata <- SSTdata[-delete_rows, 1:328]  # until April 1997
 SSTlonlat$mask <- SSTlandmask            # assign mask to df
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------get EOF
 Z <- t(SSTdata)                         # data matrix
 spat_mean <- apply(SSTdata, 1, mean)    # spatial mean
 nT <- ncol(SSTdata)                     # no. of time points
@@ -41,21 +41,21 @@ n <- 10
 ## ------------------------------------------------------------------------
 options(digits = 3)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------first 10 EOFs, dimension-reduced time series
 TS <- Zspat_detrend %*% E$v[, 1:n]
 summary(colMeans(TS))
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------estimate M and C_eta using the method of moments. Create lagged TS.
 tau <- 6
 nT <- nrow(TS)
 TStplustau <- TS[-(1:tau), ] # TS with first tau time pts removed
 TSt <- TS[-((nT-5):nT), ]    # TS with last tau time pts removed
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------empirical autocovariance and cross-covariance
 Cov0 <- crossprod(TS)/nT
 Covtau <- crossprod(TStplustau,TSt)/(nT - tau)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------estimate M and C_eta
 C0inv <- solve(Cov0)
 Mest <- Covtau %*% C0inv
 Ceta <- Cov0 - Covtau %*% C0inv %*% t(Covtau)
@@ -64,11 +64,11 @@ Ceta <- Cov0 - Covtau %*% C0inv %*% t(Covtau)
 image(Mest)
 image(Ceta)
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------take last coefficient and forecast
 SSTlonlat$pred <- NA
 alpha_forecast <- Mest %*% TS[328, ]
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------project onto original space by pre-multiplying by EOFs and adding spatial mean
 idx <- which(SSTlonlat$mask == 0)
 SSTlonlat$curr[idx]  <- as.numeric(E$v[, 1:n] %*% TS[328, ] +
                                        spat_mean)
@@ -79,7 +79,7 @@ SSTlonlat$pred[idx]  <- as.numeric(E$v[, 1:n] %*% alpha_forecast +
 SSTlonlat$obs1[idx]  <- SSTdata[, 328]
 SSTlonlat$obs2[idx]  <- SST_Oct97
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------prediction variances
 C <- Mest %*% Cov0 %*% t(Mest) + Ceta
 
 ## ------------------------------------------------------------------------
@@ -114,7 +114,7 @@ g5 <- ggplot(SSTlonlat) +
     scale_fill_distiller(palette = "Spectral",name = "degC") +
     theme_bw() + coord_fixed()
 
-## ------------------------------------------------------------------------
+## ------------------------------------------------------------------------State-space framework with EM, Kalman filter
 ## DSTM_Results <- DSTM_EM(Z = SSTdata,
 ##                         Cov0 = Cov0,
 ##                         muinit = matrix(0, n, 1),
